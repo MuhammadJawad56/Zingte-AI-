@@ -4,8 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:backend": "npm run dev --prefix backend",
     "build": "next build",
+    "build:backend": "npm run build --prefix backend",
     "start": "next start",
+    "start:backend": "npm run start --prefix backend",
     "lint": "next lint",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
