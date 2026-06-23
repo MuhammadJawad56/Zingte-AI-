@@ -1,7 +1,7 @@
 import { Router } from "express";
 import type Stripe from "stripe";
 import { prisma } from "../lib/prisma";
-import { stripe } from "../lib/stripe";
+import { getStripe, isStripeConfigured } from "../lib/stripe";
 import { activeSubscriptionWhere } from "../lib/subscriptions";
 import {
   handleRouteError,
@@ -21,7 +21,16 @@ import { getFrontendUrl } from "../lib/utils";
 
 const router = Router();
 
+function requireStripe(res: import("express").Response) {
+  if (!isStripeConfigured()) {
+    jsonError(res, "Stripe is not configured on this server", 503);
+    return false;
+  }
+  return true;
+}
+
 router.post("/checkout", async (req, res) => {
+  if (!requireStripe(res)) return;
   const session = await requireSession(req, res);
   if (!session) return;
 
@@ -61,7 +70,7 @@ router.post("/checkout", async (req, res) => {
 
     const appUrl = getFrontendUrl();
 
-    const checkoutSession = await stripe.checkout.sessions.create({
+    const checkoutSession = await getStripe().checkout.sessions.create({
       customer: stripeCustomerId,
       mode: "subscription",
       payment_method_types: ["card"],
@@ -115,6 +124,7 @@ router.post("/checkout", async (req, res) => {
 });
 
 router.get("/checkout", async (req, res) => {
+  if (!requireStripe(res)) return;
   const session = await requireSession(req, res);
   if (!session) return;
 
@@ -122,7 +132,7 @@ router.get("/checkout", async (req, res) => {
   if (!sessionId) return jsonError(res, "Missing session_id");
 
   try {
-    const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId, {
+    const checkoutSession = await getStripe().checkout.sessions.retrieve(sessionId, {
       expand: ["subscription"],
     });
 
@@ -164,6 +174,7 @@ router.get("/checkout", async (req, res) => {
 });
 
 router.post("/portal", async (req, res) => {
+  if (!requireStripe(res)) return;
   const session = await requireSession(req, res);
   if (!session) return;
 
@@ -172,7 +183,7 @@ router.post("/portal", async (req, res) => {
     return jsonError(res, "No billing account found");
   }
 
-  const portalSession = await stripe.billingPortal.sessions.create({
+  const portalSession = await getStripe().billingPortal.sessions.create({
     customer: user.stripeCustomerId,
     return_url: `${getFrontendUrl()}/dashboard/subscriptions`,
   });
@@ -181,6 +192,7 @@ router.post("/portal", async (req, res) => {
 });
 
 router.post("/webhook", async (req, res) => {
+  if (!requireStripe(res)) return;
   const body = req.body as Buffer;
   const signature = req.headers["stripe-signature"] as string | undefined;
 
@@ -197,7 +209,7 @@ router.post("/webhook", async (req, res) => {
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    event = getStripe().webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
     console.error("Webhook signature verification failed:", err);
     return res.status(400).json({ error: "Invalid signature" });
@@ -226,7 +238,7 @@ router.post("/webhook", async (req, res) => {
         if (!userId || !apiProductId || !billingCycle) break;
 
         const subId = checkoutSession.subscription as string;
-        const stripeSub = await stripe.subscriptions.retrieve(subId);
+        const stripeSub = await getStripe().subscriptions.retrieve(subId);
 
         await activateSubscriptionFromStripe(
           stripeSub,
@@ -279,7 +291,7 @@ router.post("/webhook", async (req, res) => {
         const subId = getInvoiceSubscriptionId(invoice);
         if (!subId) break;
 
-        const stripeSub = await stripe.subscriptions.retrieve(subId);
+        const stripeSub = await getStripe().subscriptions.retrieve(subId);
         if (stripeSub.status === "past_due" || stripeSub.status === "unpaid") {
           await prisma.subscription.updateMany({
             where: { stripeSubscriptionId: subId },

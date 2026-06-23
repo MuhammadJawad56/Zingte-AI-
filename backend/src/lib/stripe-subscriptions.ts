@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import type { ApiProduct, User } from "@prisma/client";
 import { prisma } from "./prisma";
-import { stripe } from "./stripe";
+import { getStripe } from "./stripe";
 
 export function getInvoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
   const sub = invoice.parent?.subscription_details?.subscription;
@@ -20,7 +20,7 @@ export function getStripeSubscriptionPeriod(subscription: Stripe.Subscription) {
 export async function getOrCreateStripeCustomer(user: User): Promise<string> {
   if (user.stripeCustomerId) return user.stripeCustomerId;
 
-  const customer = await stripe.customers.create({
+  const customer = await getStripe().customers.create({
     email: user.email,
     name: user.name,
     metadata: { userId: user.id },
@@ -46,7 +46,7 @@ export async function ensureStripeProduct(api: ApiProduct): Promise<ApiProduct> 
   let productId = api.stripeProductId;
 
   if (!productId) {
-    const product = await stripe.products.create({
+    const product = await getStripe().products.create({
       name: api.name,
       description: api.description.slice(0, 500),
       metadata: { apiProductId: api.id, slug: api.slug },
@@ -56,7 +56,7 @@ export async function ensureStripeProduct(api: ApiProduct): Promise<ApiProduct> 
 
   let monthlyPriceId = api.stripePriceMonthlyId;
   if (!monthlyPriceId) {
-    const monthly = await stripe.prices.create({
+    const monthly = await getStripe().prices.create({
       product: productId,
       unit_amount: Math.round(api.priceMonthly * 100),
       currency: "usd",
@@ -68,7 +68,7 @@ export async function ensureStripeProduct(api: ApiProduct): Promise<ApiProduct> 
 
   let yearlyPriceId = api.stripePriceYearlyId;
   if (!yearlyPriceId) {
-    const yearly = await stripe.prices.create({
+    const yearly = await getStripe().prices.create({
       product: productId,
       unit_amount: Math.round(api.priceYearly * 100),
       currency: "usd",
@@ -137,7 +137,7 @@ export async function activateSubscriptionFromStripe(
 }
 
 export async function cancelStripeSubscription(stripeSubscriptionId: string) {
-  return stripe.subscriptions.update(stripeSubscriptionId, {
+  return getStripe().subscriptions.update(stripeSubscriptionId, {
     cancel_at_period_end: true,
   });
 }
