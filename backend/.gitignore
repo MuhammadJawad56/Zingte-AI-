@@ -1,0 +1,16 @@
+# dependencies
+node_modules/
+dist/
+
+# env files — never commit real secrets (template: .env.example only)
+.env
+.env.*
+!.env.example
+
+# prisma local db
+prisma/*.db
+prisma/*.db-journal
+
+# logs
+npm-debug.log*
+*.log
