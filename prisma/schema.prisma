@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  CUSTOMER
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  EXPIRED
+  PENDING
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum AuthTokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+model User {
+  id               String         @id @default(cuid())
+  email            String         @unique
+  passwordHash     String
+  name             String
+  company          String?
+  role             Role           @default(CUSTOMER)
+  emailVerifiedAt  DateTime?
+  stripeCustomerId String?        @unique
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  subscriptions    Subscription[]
+  apiTokens        ApiToken[]
+  authTokens       AuthToken[]
+  usageLogs        ApiUsageLog[]
+}
+
+model AuthToken {
+  id        String        @id @default(cuid())
+  userId    String
+  tokenHash String        @unique
+  type      AuthTokenType
+  expiresAt DateTime
+  createdAt DateTime      @default(now())
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+model ApiProduct {
+  id                   String         @id @default(cuid())
+  name                 String
+  slug                 String         @unique
+  description          String
+  category             String
+  baseUrl              String
+  version              String         @default("v1")
+  priceMonthly         Float
+  priceYearly          Float
+  rateLimit            Int            @default(1000)
+  features             String
+  documentation        String?
+  isActive             Boolean        @default(true)
+  stripeProductId      String?        @unique
+  stripePriceMonthlyId String?
+  stripePriceYearlyId  String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  subscriptions        Subscription[]
+  apiTokens            ApiToken[]
+  usageLogs            ApiUsageLog[]
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String
+  apiProductId         String
+  status               SubscriptionStatus @default(PENDING)
+  billingCycle         BillingCycle       @default(MONTHLY)
+  price                Float
+  startsAt             DateTime           @default(now())
+  expiresAt            DateTime
+  cancelledAt          DateTime?
+  stripeSubscriptionId String?            @unique
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiProduct           ApiProduct         @relation(fields: [apiProductId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, apiProductId])
+}
+
+model ApiToken {
+  id           String        @id @default(cuid())
+  userId       String
+  apiProductId String
+  name         String
+  tokenHash    String        @unique
+  tokenPrefix  String
+  lastUsedAt   DateTime?
+  expiresAt    DateTime?
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiProduct   ApiProduct    @relation(fields: [apiProductId], references: [id], onDelete: Cascade)
+  usageLogs    ApiUsageLog[]
+
+  @@index([userId, apiProductId])
+  @@index([userId, isActive])
+}
+
+model ApiUsageLog {
+  id           String     @id @default(cuid())
+  userId       String
+  apiProductId String
+  apiTokenId   String?
+  endpoint     String
+  method       String     @default("GET")
+  statusCode   Int
+  latencyMs    Int?
+  ipAddress    String?
+  createdAt    DateTime   @default(now())
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  apiProduct   ApiProduct @relation(fields: [apiProductId], references: [id], onDelete: Cascade)
+  apiToken     ApiToken?  @relation(fields: [apiTokenId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([apiTokenId, createdAt])
+  @@index([apiProductId, createdAt])
+}
+
+model WebhookEvent {
+  id            String   @id @default(cuid())
+  stripeEventId String   @unique
+  type          String
+  processedAt   DateTime @default(now())
+}
