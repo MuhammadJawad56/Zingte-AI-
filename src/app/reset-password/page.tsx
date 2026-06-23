@@ -3,9 +3,8 @@
 import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Zap } from "lucide-react";
 import { Input, Button } from "@/components/ui";
-import { AuthThemeToggle } from "@/components/auth-theme-toggle";
+import { AuthPageShell } from "@/components/auth-layout";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -81,20 +80,13 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <AuthThemeToggle />
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-accent">
-            <Zap className="h-6 w-6 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold">Set new password</h1>
-          <p className="mt-1 text-sm text-muted">Choose a strong password for your account</p>
-        </div>
-        <Suspense fallback={<p className="text-center text-muted">Loading...</p>}>
-          <ResetPasswordForm />
-        </Suspense>
-      </div>
-    </div>
+    <AuthPageShell
+      title="Set new password"
+      subtitle="Choose a strong password for your account"
+    >
+      <Suspense fallback={<p className="text-center text-muted">Loading...</p>}>
+        <ResetPasswordForm />
+      </Suspense>
+    </AuthPageShell>
   );
 }

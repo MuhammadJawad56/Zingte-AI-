@@ -5,6 +5,7 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { PageHeader, Badge, EmptyState } from "@/components/ui";
 import { CreateTokenForm } from "@/components/client-components";
 import { formatDate } from "@/lib/utils";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
 import { RevokeTokenButton } from "@/components/cancel-button";
 
 export default async function TokensPage() {
@@ -18,11 +19,7 @@ export default async function TokensPage() {
       orderBy: { createdAt: "desc" },
     }),
     prisma.subscription.findMany({
-      where: {
-        userId: session.id,
-        status: "ACTIVE",
-        expiresAt: { gt: new Date() },
-      },
+      where: { userId: session.id, ...activeSubscriptionWhere() },
       include: { apiProduct: { select: { name: true } } },
     }),
   ]);

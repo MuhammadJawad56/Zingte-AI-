@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
 import {
   isErrorResponse,
   requireSession,
@@ -33,11 +34,7 @@ export async function GET(request: NextRequest) {
   let subscribedIds = new Set<string>();
   if (session.role === "CUSTOMER" || session.role === "ADMIN") {
     const subs = await prisma.subscription.findMany({
-      where: {
-        userId: session.id,
-        status: "ACTIVE",
-        expiresAt: { gt: new Date() },
-      },
+      where: { userId: session.id, ...activeSubscriptionWhere() },
       select: { apiProductId: true },
     });
     subscribedIds = new Set(subs.map((s) => s.apiProductId));

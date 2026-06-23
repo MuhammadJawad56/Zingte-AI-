@@ -1,27 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
 import { slugify } from "@/lib/utils";
-
-const createApiSchema = z.object({
-  name: z.string().min(2),
-  description: z.string().min(10),
-  category: z.string().min(2),
-  baseUrl: z.string().url(),
-  version: z.string().default("v1"),
-  priceMonthly: z.number().positive(),
-  priceYearly: z.number().positive(),
-  rateLimit: z.number().int().positive().default(1000),
-  features: z.array(z.string()).min(1),
-  documentation: z.string().optional(),
-});
+import {
+  handleRouteError,
+  isErrorResponse,
+  parseBody,
+  requireAdmin,
+  serializeApiProduct,
+} from "@/lib/api-helpers";
+import { apiProductFieldsSchema } from "@/lib/validators";
 
 export async function GET() {
-  const session = await getSession();
-  if (!session || session.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAdmin();
+  if (isErrorResponse(session)) return session;
 
   const apis = await prisma.apiProduct.findMany({
     orderBy: { createdAt: "desc" },
@@ -30,19 +21,25 @@ export async function GET() {
     },
   });
 
-  return NextResponse.json(apis);
+  return NextResponse.json(
+    apis.map((api) => ({
+      ...serializeApiProduct(api),
+      stats: {
+        subscriptions: api._count.subscriptions,
+        tokens: api._count.apiTokens,
+      },
+    }))
+  );
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session || session.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAdmin();
+  if (isErrorResponse(session)) return session;
+
+  const data = await parseBody(request, apiProductFieldsSchema);
+  if (isErrorResponse(data)) return data;
 
   try {
-    const body = await request.json();
-    const data = createApiSchema.parse(body);
-
     let slug = slugify(data.name);
     const existing = await prisma.apiProduct.findUnique({ where: { slug } });
     if (existing) slug = `${slug}-${Date.now()}`;
@@ -63,11 +60,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(api, { status: 201 });
+    return NextResponse.json(serializeApiProduct(api), { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
-    return NextResponse.json({ error: "Failed to create API" }, { status: 500 });
+    return handleRouteError(error, "Failed to create API");
   }
 }

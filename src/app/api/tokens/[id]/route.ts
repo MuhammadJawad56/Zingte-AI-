@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import {
   isErrorResponse,
   jsonError,
   parseBody,
   requireSession,
+  serializeApiToken,
 } from "@/lib/api-helpers";
+import { createTokenSchema } from "@/lib/validators";
 
-const updateTokenSchema = z.object({
-  name: z.string().min(1).max(50),
-});
+const renameTokenSchema = createTokenSchema.pick({ name: true });
 
 export async function PATCH(
   request: NextRequest,
@@ -20,7 +19,7 @@ export async function PATCH(
   if (isErrorResponse(session)) return session;
 
   const { id } = await params;
-  const data = await parseBody(request, updateTokenSchema);
+  const data = await parseBody(request, renameTokenSchema);
   if (isErrorResponse(data)) return data;
 
   const token = await prisma.apiToken.findUnique({ where: { id } });
@@ -34,15 +33,7 @@ export async function PATCH(
     include: { apiProduct: { select: { name: true, slug: true } } },
   });
 
-  return NextResponse.json({
-    id: updated.id,
-    name: updated.name,
-    tokenPrefix: updated.tokenPrefix,
-    isActive: updated.isActive,
-    apiProduct: updated.apiProduct,
-    lastUsedAt: updated.lastUsedAt,
-    createdAt: updated.createdAt,
-  });
+  return NextResponse.json(serializeApiToken(updated));
 }
 
 export async function DELETE(

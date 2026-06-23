@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { PageHeader, Badge } from "@/components/ui";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { isActiveSubscription } from "@/lib/subscriptions";
 
 export default async function AdminSubscribersPage() {
   const session = await getSession();
@@ -46,7 +47,7 @@ export default async function AdminSubscribersPage() {
                   </p>
                 </div>
                 <Badge variant="default">
-                  {customer.subscriptions.filter((s) => s.status === "ACTIVE").length}{" "}
+                  {customer.subscriptions.filter(isActiveSubscription).length}{" "}
                   active subs
                 </Badge>
               </div>
@@ -62,7 +63,7 @@ export default async function AdminSubscribersPage() {
                       <div className="flex items-center gap-3">
                         <Badge
                           variant={
-                            sub.status === "ACTIVE" ? "success" : "muted"
+                            isActiveSubscription(sub) ? "success" : "muted"
                           }
                         >
                           {sub.status}

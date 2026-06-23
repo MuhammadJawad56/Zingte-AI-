@@ -1,31 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
-import { serializeApiProduct } from "@/lib/api-helpers";
-
-const updateSchema = z.object({
-  name: z.string().min(2).optional(),
-  description: z.string().min(10).optional(),
-  category: z.string().min(2).optional(),
-  baseUrl: z.string().url().optional(),
-  version: z.string().optional(),
-  priceMonthly: z.number().positive().optional(),
-  priceYearly: z.number().positive().optional(),
-  rateLimit: z.number().int().positive().optional(),
-  features: z.array(z.string()).optional(),
-  documentation: z.string().optional(),
-  isActive: z.boolean().optional(),
-});
+import {
+  handleRouteError,
+  isErrorResponse,
+  jsonError,
+  parseBody,
+  requireAdmin,
+  serializeApiProduct,
+} from "@/lib/api-helpers";
+import { updateApiProductSchema } from "@/lib/validators";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSession();
-  if (!session || session.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAdmin();
+  if (isErrorResponse(session)) return session;
 
   const { id } = await params;
   const api = await prisma.apiProduct.findUnique({
@@ -35,9 +25,7 @@ export async function GET(
     },
   });
 
-  if (!api) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
+  if (!api) return jsonError("Not found", 404);
 
   return NextResponse.json({
     ...serializeApiProduct(api),
@@ -53,17 +41,14 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSession();
-  if (!session || session.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAdmin();
+  if (isErrorResponse(session)) return session;
 
   const { id } = await params;
+  const data = await parseBody(request, updateApiProductSchema);
+  if (isErrorResponse(data)) return data;
 
   try {
-    const body = await request.json();
-    const data = updateSchema.parse(body);
-
     const updateData: Record<string, unknown> = { ...data };
     if (data.features) {
       updateData.features = JSON.stringify(data.features);
@@ -74,12 +59,9 @@ export async function PATCH(
       data: updateData,
     });
 
-    return NextResponse.json(api);
+    return NextResponse.json(serializeApiProduct(api));
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
-    return NextResponse.json({ error: "Failed to update API" }, { status: 500 });
+    return handleRouteError(error, "Failed to update API");
   }
 }
 
@@ -87,10 +69,8 @@ export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await getSession();
-  if (!session || session.role !== "ADMIN") {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAdmin();
+  if (isErrorResponse(session)) return session;
 
   const { id } = await params;
   await prisma.apiProduct.delete({ where: { id } });

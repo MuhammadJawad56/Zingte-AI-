@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
 import { getAppUrl } from "@/lib/utils";
 import { stripe } from "@/lib/stripe";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
+import {
+  handleRouteError,
+  isErrorResponse,
+  jsonError,
+  parseBody,
+  requireSession,
+} from "@/lib/api-helpers";
+import { checkoutSchema } from "@/lib/validators";
 import {
   ensureStripeProduct,
   getOrCreateStripeCustomer,
@@ -11,47 +18,32 @@ import {
 } from "@/lib/stripe-subscriptions";
 import type Stripe from "stripe";
 
-const checkoutSchema = z.object({
-  apiProductId: z.string(),
-  billingCycle: z.enum(["MONTHLY", "YEARLY"]),
-});
-
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireSession();
+  if (isErrorResponse(session)) return session;
+
+  const data = await parseBody(request, checkoutSchema);
+  if (isErrorResponse(data)) return data;
 
   try {
-    const body = await request.json();
-    const data = checkoutSchema.parse(body);
-
     const user = await prisma.user.findUnique({ where: { id: session.id } });
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
-    }
+    if (!user) return jsonError("User not found", 404);
 
     let api = await prisma.apiProduct.findUnique({
       where: { id: data.apiProductId, isActive: true },
     });
-    if (!api) {
-      return NextResponse.json({ error: "API not found" }, { status: 404 });
-    }
+    if (!api) return jsonError("API not found", 404);
 
-    const existing = await prisma.subscription.findUnique({
+    const existing = await prisma.subscription.findFirst({
       where: {
-        userId_apiProductId: {
-          userId: user.id,
-          apiProductId: api.id,
-        },
+        userId: user.id,
+        apiProductId: api.id,
+        ...activeSubscriptionWhere(),
       },
     });
 
-    if (existing?.status === "ACTIVE" && existing.expiresAt > new Date()) {
-      return NextResponse.json(
-        { error: "Already subscribed to this API" },
-        { status: 400 }
-      );
+    if (existing) {
+      return jsonError("Already subscribed to this API");
     }
 
     api = await ensureStripeProduct(api);
@@ -116,27 +108,16 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ url: checkoutSession.url });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
-    console.error("Checkout error:", error);
-    return NextResponse.json(
-      { error: "Failed to create checkout session" },
-      { status: 500 }
-    );
+    return handleRouteError(error, "Failed to create checkout session");
   }
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireSession();
+  if (isErrorResponse(session)) return session;
 
   const sessionId = request.nextUrl.searchParams.get("session_id");
-  if (!sessionId) {
-    return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
-  }
+  if (!sessionId) return jsonError("Missing session_id");
 
   try {
     const checkoutSession = await stripe.checkout.sessions.retrieve(sessionId, {
@@ -144,7 +125,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (checkoutSession.metadata?.userId !== session.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return jsonError("Unauthorized", 401);
     }
 
     if (checkoutSession.payment_status !== "paid") {
@@ -176,7 +157,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ status: "complete", subscription: full });
   } catch (error) {
-    console.error("Session verify error:", error);
-    return NextResponse.json({ error: "Verification failed" }, { status: 500 });
+    return handleRouteError(error, "Verification failed");
   }
 }

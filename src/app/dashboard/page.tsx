@@ -5,6 +5,7 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { PageHeader, StatCard } from "@/components/ui";
 import { Package, CreditCard, Key, TrendingUp } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
 import Link from "next/link";
 
 export default async function CustomerDashboard() {
@@ -13,7 +14,7 @@ export default async function CustomerDashboard() {
 
   const [subscriptions, tokens, apis] = await Promise.all([
     prisma.subscription.findMany({
-      where: { userId: session.id, status: "ACTIVE" },
+      where: { userId: session.id, ...activeSubscriptionWhere() },
       include: { apiProduct: true },
     }),
     prisma.apiToken.count({ where: { userId: session.id, isActive: true } }),

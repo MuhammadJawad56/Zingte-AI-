@@ -24,17 +24,36 @@ export async function requireAdmin(): Promise<SessionUser | NextResponse> {
   return session;
 }
 
-export async function requireCustomer(): Promise<SessionUser | NextResponse> {
-  const session = await getSession();
-  if (!session) return jsonError("Unauthorized", 401);
-  if (session.role !== "CUSTOMER" && session.role !== "ADMIN") {
-    return jsonError("Forbidden", 403);
-  }
-  return session;
-}
-
 export function isErrorResponse(value: unknown): value is NextResponse {
   return value instanceof NextResponse;
+}
+
+export function handleRouteError(error: unknown, fallback = "Request failed") {
+  if (error instanceof z.ZodError) {
+    return jsonError(error.errors[0]?.message || "Invalid request body");
+  }
+  console.error(fallback, error);
+  return jsonError(fallback, 500);
+}
+
+export function serializeApiToken(token: {
+  id: string;
+  name: string;
+  tokenPrefix: string;
+  lastUsedAt: Date | null;
+  isActive: boolean;
+  createdAt: Date;
+  apiProduct: { name: string; slug: string };
+}) {
+  return {
+    id: token.id,
+    name: token.name,
+    tokenPrefix: token.tokenPrefix,
+    apiProduct: token.apiProduct,
+    lastUsedAt: token.lastUsedAt,
+    isActive: token.isActive,
+    createdAt: token.createdAt,
+  };
 }
 
 export async function parseBody<T extends z.ZodType>(

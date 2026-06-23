@@ -1,25 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { createAuthToken } from "@/lib/auth-tokens";
+import { hashPassword } from "@/lib/auth";
 import { sendVerificationEmail } from "@/lib/email";
-
-const registerSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z
-    .string()
-    .min(8, "Password must be at least 8 characters")
-    .regex(/[A-Z]/, "Password must include an uppercase letter")
-    .regex(/[0-9]/, "Password must include a number"),
-  name: z.string().min(2, "Name is required"),
-  company: z.string().optional(),
-});
+import {
+  handleRouteError,
+  isErrorResponse,
+  jsonError,
+  parseBody,
+} from "@/lib/api-helpers";
+import { registerSchema } from "@/lib/validators";
 
 export async function POST(request: NextRequest) {
+  const data = await parseBody(request, registerSchema);
+  if (isErrorResponse(data)) return data;
+
   try {
-    const body = await request.json();
-    const data = registerSchema.parse(body);
     const email = data.email.toLowerCase().trim();
 
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -34,13 +30,10 @@ export async function POST(request: NextRequest) {
           { status: 409 }
         );
       }
-      return NextResponse.json(
-        { error: "Email already registered" },
-        { status: 400 }
-      );
+      return jsonError("Email already registered");
     }
 
-    const passwordHash = await bcrypt.hash(data.password, 12);
+    const passwordHash = await hashPassword(data.password);
     const user = await prisma.user.create({
       data: {
         email,
@@ -63,10 +56,6 @@ export async function POST(request: NextRequest) {
       { status: 201 }
     );
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
-    console.error("Register error:", error);
-    return NextResponse.json({ error: "Registration failed" }, { status: 500 });
+    return handleRouteError(error, "Registration failed");
   }
 }

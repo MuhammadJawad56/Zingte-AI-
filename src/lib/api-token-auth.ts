@@ -2,6 +2,7 @@ import type { ApiProduct, ApiToken, Subscription, User } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { hashToken } from "@/lib/tokens";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
 
 export class ApiAuthError extends Error {
   constructor(
@@ -64,8 +65,7 @@ export async function authenticateApiToken(
     where: {
       userId: apiToken.userId,
       apiProductId: apiToken.apiProductId,
-      status: "ACTIVE",
-      expiresAt: { gt: new Date() },
+      ...activeSubscriptionWhere(),
     },
   });
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "./ui";
 
@@ -8,6 +9,7 @@ export function CancelSubscriptionButton({
 }: {
   subscriptionId: string;
 }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   async function handleCancel() {
@@ -19,7 +21,8 @@ export function CancelSubscriptionButton({
       return;
     setLoading(true);
     await fetch(`/api/subscriptions/${subscriptionId}`, { method: "PATCH" });
-    window.location.reload();
+    router.refresh();
+    setLoading(false);
   }
 
   return (
@@ -30,13 +33,15 @@ export function CancelSubscriptionButton({
 }
 
 export function RevokeTokenButton({ tokenId }: { tokenId: string }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   async function handleRevoke() {
     if (!confirm("Revoke this token? It will stop working immediately.")) return;
     setLoading(true);
     await fetch(`/api/tokens/${tokenId}`, { method: "DELETE" });
-    window.location.reload();
+    router.refresh();
+    setLoading(false);
   }
 
   return (

@@ -1,27 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import bcrypt from "bcryptjs";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { createSession, setSessionCookie } from "@/lib/auth";
-
-const loginSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(1),
-});
+import { createSession, setSessionCookie, verifyPassword } from "@/lib/auth";
+import {
+  handleRouteError,
+  isErrorResponse,
+  jsonError,
+  parseBody,
+} from "@/lib/api-helpers";
+import { loginSchema } from "@/lib/validators";
 
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const data = loginSchema.parse(body);
-    const email = data.email.toLowerCase().trim();
+  const data = await parseBody(request, loginSchema);
+  if (isErrorResponse(data)) return data;
 
+  try {
+    const email = data.email.toLowerCase().trim();
     const user = await prisma.user.findUnique({ where: { email } });
 
-    if (!user || !(await bcrypt.compare(data.password, user.passwordHash))) {
-      return NextResponse.json(
-        { error: "Invalid email or password" },
-        { status: 401 }
-      );
+    if (!user || !(await verifyPassword(data.password, user.passwordHash))) {
+      return jsonError("Invalid email or password", 401);
     }
 
     if (!user.emailVerifiedAt) {
@@ -54,9 +51,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
-    return NextResponse.json({ error: "Login failed" }, { status: 500 });
+    return handleRouteError(error, "Login failed");
   }
 }

@@ -1,33 +1,16 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { PageHeader, StatCard } from "@/components/ui";
 import { Package, Users, CreditCard, DollarSign } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { getAdminStats } from "@/lib/subscription-jobs";
 
 export default async function AdminDashboard() {
   const session = await getSession();
   if (!session || session.role !== "ADMIN") redirect("/dashboard");
 
-  const [apiCount, customerCount, activeSubs, revenue] = await Promise.all([
-    prisma.apiProduct.count(),
-    prisma.user.count({ where: { role: "CUSTOMER" } }),
-    prisma.subscription.count({ where: { status: "ACTIVE" } }),
-    prisma.subscription.aggregate({
-      where: { status: "ACTIVE" },
-      _sum: { price: true },
-    }),
-  ]);
-
-  const recentSubs = await prisma.subscription.findMany({
-    take: 5,
-    orderBy: { createdAt: "desc" },
-    include: {
-      user: { select: { name: true, company: true } },
-      apiProduct: { select: { name: true } },
-    },
-  });
+  const stats = await getAdminStats();
 
   return (
     <DashboardLayout role="ADMIN">
@@ -37,17 +20,17 @@ export default async function AdminDashboard() {
       />
 
       <div className="mb-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title="Total APIs" value={apiCount} icon={Package} delay={0} />
-        <StatCard title="Customers" value={customerCount} icon={Users} delay={80} />
+        <StatCard title="Active APIs" value={stats.apis} icon={Package} delay={0} />
+        <StatCard title="Customers" value={stats.customers} icon={Users} delay={80} />
         <StatCard
           title="Active Subscriptions"
-          value={activeSubs}
+          value={stats.activeSubscriptions}
           icon={CreditCard}
           delay={160}
         />
         <StatCard
           title="Total Revenue"
-          value={formatCurrency(revenue._sum.price || 0)}
+          value={formatCurrency(stats.totalRevenue)}
           icon={DollarSign}
           delay={240}
         />
@@ -55,11 +38,11 @@ export default async function AdminDashboard() {
 
       <div className="glass animate-fade-in stagger-5 rounded-xl p-6" style={{ opacity: 0 }}>
         <h2 className="mb-4 text-lg font-semibold">Recent Subscriptions</h2>
-        {recentSubs.length === 0 ? (
+        {stats.recentSubscriptions.length === 0 ? (
           <p className="text-sm text-muted">No subscriptions yet.</p>
         ) : (
           <div className="space-y-3">
-            {recentSubs.map((sub) => (
+            {stats.recentSubscriptions.slice(0, 5).map((sub) => (
               <div
                 key={sub.id}
                 className="flex items-center justify-between rounded-lg border border-border bg-card p-4"

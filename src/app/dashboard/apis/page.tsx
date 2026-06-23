@@ -5,6 +5,7 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { PageHeader } from "@/components/ui";
 import { ApiCard, SubscribeButton } from "@/components/client-components";
 import { parseFeatures } from "@/lib/utils";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
 
 export default async function BrowseApisPage() {
   const session = await getSession();
@@ -16,7 +17,7 @@ export default async function BrowseApisPage() {
       orderBy: { name: "asc" },
     }),
     prisma.subscription.findMany({
-      where: { userId: session.id, status: "ACTIVE" },
+      where: { userId: session.id, ...activeSubscriptionWhere() },
       select: { apiProductId: true },
     }),
   ]);

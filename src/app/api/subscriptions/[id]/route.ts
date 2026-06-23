@@ -28,7 +28,7 @@ export async function GET(
 
   if (!subscription) return jsonError("Not found", 404);
   if (session.role !== "ADMIN" && subscription.userId !== session.id) {
-    return jsonError("Unauthorized", 401);
+    return jsonError("Forbidden", 403);
   }
 
   return NextResponse.json(subscription);
@@ -44,12 +44,9 @@ export async function PATCH(
   const { id } = await params;
   const subscription = await prisma.subscription.findUnique({ where: { id } });
 
-  if (!subscription) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
+  if (!subscription) return jsonError("Not found", 404);
   if (session.role !== "ADMIN" && subscription.userId !== session.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    return jsonError("Forbidden", 403);
   }
 
   if (subscription.stripeSubscriptionId) {
@@ -58,9 +55,7 @@ export async function PATCH(
 
   await prisma.subscription.update({
     where: { id },
-    data: {
-      cancelledAt: new Date(),
-    },
+    data: { cancelledAt: new Date() },
   });
 
   return NextResponse.json({

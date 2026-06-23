@@ -106,30 +106,16 @@ async function handleGateway(
 
 type RouteParams = { params: Promise<{ slug: string; path?: string[] }> };
 
-export async function GET(request: NextRequest, { params }: RouteParams) {
+async function gatewayRoute(request: NextRequest, { params }: RouteParams) {
   const { slug, path } = await params;
   return handleGateway(request, slug, path);
 }
 
-export async function POST(request: NextRequest, { params }: RouteParams) {
-  const { slug, path } = await params;
-  return handleGateway(request, slug, path);
-}
-
-export async function PUT(request: NextRequest, { params }: RouteParams) {
-  const { slug, path } = await params;
-  return handleGateway(request, slug, path);
-}
-
-export async function PATCH(request: NextRequest, { params }: RouteParams) {
-  const { slug, path } = await params;
-  return handleGateway(request, slug, path);
-}
-
-export async function DELETE(request: NextRequest, { params }: RouteParams) {
-  const { slug, path } = await params;
-  return handleGateway(request, slug, path);
-}
+export const GET = gatewayRoute;
+export const POST = gatewayRoute;
+export const PUT = gatewayRoute;
+export const PATCH = gatewayRoute;
+export const DELETE = gatewayRoute;
 
 export async function OPTIONS(
   _request: NextRequest,

@@ -1,9 +1,6 @@
 import nodemailer from "nodemailer";
 import type Transporter from "nodemailer/lib/mailer";
-
-function getAppUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-}
+import { getAppUrl } from "@/lib/utils";
 
 function getFromAddress() {
   const name = process.env.EMAIL_FROM_NAME || "Zingte API Hub";

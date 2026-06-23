@@ -1,10 +1,12 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button, Input, Textarea } from "./ui";
 import { Plus } from "lucide-react";
 
 export function CreateApiForm() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -40,7 +42,8 @@ export function CreateApiForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      window.location.reload();
+      router.refresh();
+      setOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create API");
     } finally {
@@ -161,6 +164,7 @@ export function ToggleApiButton({
   apiId: string;
   isActive: boolean;
 }) {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
   async function handleToggle() {
@@ -170,7 +174,8 @@ export function ToggleApiButton({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isActive: !isActive }),
     });
-    window.location.reload();
+    router.refresh();
+    setLoading(false);
   }
 
   return (

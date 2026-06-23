@@ -1,19 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
-import { generateApiToken, hashToken } from "@/lib/tokens";
-
-const createTokenSchema = z.object({
-  apiProductId: z.string(),
-  name: z.string().min(1).max(50),
-});
+import { generateApiToken } from "@/lib/tokens";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
+import {
+  handleRouteError,
+  isErrorResponse,
+  jsonError,
+  parseBody,
+  requireSession,
+  serializeApiToken,
+} from "@/lib/api-helpers";
+import { createTokenSchema } from "@/lib/validators";
 
 export async function GET() {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireSession();
+  if (isErrorResponse(session)) return session;
 
   const tokens = await prisma.apiToken.findMany({
     where: { userId: session.id },
@@ -21,43 +22,27 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  return NextResponse.json(
-    tokens.map((t) => ({
-      id: t.id,
-      name: t.name,
-      tokenPrefix: t.tokenPrefix,
-      apiProduct: t.apiProduct,
-      lastUsedAt: t.lastUsedAt,
-      isActive: t.isActive,
-      createdAt: t.createdAt,
-    }))
-  );
+  return NextResponse.json(tokens.map(serializeApiToken));
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireSession();
+  if (isErrorResponse(session)) return session;
+
+  const data = await parseBody(request, createTokenSchema);
+  if (isErrorResponse(data)) return data;
 
   try {
-    const body = await request.json();
-    const data = createTokenSchema.parse(body);
-
     const subscription = await prisma.subscription.findFirst({
       where: {
         userId: session.id,
         apiProductId: data.apiProductId,
-        status: "ACTIVE",
-        expiresAt: { gt: new Date() },
+        ...activeSubscriptionWhere(),
       },
     });
 
     if (!subscription) {
-      return NextResponse.json(
-        { error: "Active subscription required" },
-        { status: 403 }
-      );
+      return jsonError("Active subscription required", 403);
     }
 
     const { token, hash, prefix } = generateApiToken();
@@ -74,9 +59,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ token }, { status: 201 });
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return NextResponse.json({ error: error.errors[0].message }, { status: 400 });
-    }
-    return NextResponse.json({ error: "Failed to create token" }, { status: 500 });
+    return handleRouteError(error, "Failed to create token");
   }
 }

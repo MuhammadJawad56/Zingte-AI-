@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
-import { Button } from "./ui";
+import { Button, Input, Select, Badge } from "./ui";
 import { formatCurrency } from "@/lib/utils";
 import { Copy, Check, Eye, EyeOff } from "lucide-react";
 
@@ -80,11 +81,7 @@ export function ApiCard({
           </span>
           <h3 className="mt-1 text-lg font-semibold">{name}</h3>
         </div>
-        {isSubscribed && (
-          <span className="rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success">
-            Subscribed
-          </span>
-        )}
+        {isSubscribed && <Badge variant="success">Subscribed</Badge>}
       </div>
       <p className="mb-4 flex-1 text-sm text-muted line-clamp-3">{description}</p>
       <ul className="mb-4 space-y-1">
@@ -234,6 +231,7 @@ export function CreateTokenForm({
 }: {
   subscriptions: { apiProductId: string; apiName: string }[];
 }) {
+  const router = useRouter();
   const [apiProductId, setApiProductId] = useState(subscriptions[0]?.apiProductId || "");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -276,7 +274,7 @@ export function CreateTokenForm({
             onClick={() => {
               setNewToken(null);
               setName("");
-              window.location.reload();
+              router.refresh();
             }}
           >
             Done
@@ -284,32 +282,24 @@ export function CreateTokenForm({
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-muted">API</label>
-            <select
-              value={apiProductId}
-              onChange={(e) => setApiProductId(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-border bg-card px-4 py-2.5 text-sm"
-            >
-              {subscriptions.map((s) => (
-                <option key={s.apiProductId} value={s.apiProductId}>
-                  {s.apiName}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-muted">
-              Token Name
-            </label>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Production, Staging"
-              required
-              className="mt-1.5 w-full rounded-lg border border-border bg-card px-4 py-2.5 text-sm"
-            />
-          </div>
+          <Select
+            label="API"
+            value={apiProductId}
+            onChange={(e) => setApiProductId(e.target.value)}
+          >
+            {subscriptions.map((s) => (
+              <option key={s.apiProductId} value={s.apiProductId}>
+                {s.apiName}
+              </option>
+            ))}
+          </Select>
+          <Input
+            label="Token Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Production, Staging"
+            required
+          />
           {error && <p className="text-sm text-danger">{error}</p>}
           <Button type="submit" disabled={loading}>
             {loading ? "Generating..." : "Generate Token"}

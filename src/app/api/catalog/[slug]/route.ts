@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
 import {
   isErrorResponse,
   jsonError,
@@ -25,8 +26,7 @@ export async function GET(
     where: {
       userId: session.id,
       apiProductId: api.id,
-      status: "ACTIVE",
-      expiresAt: { gt: new Date() },
+      ...activeSubscriptionWhere(),
     },
   });
 

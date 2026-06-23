@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Zap, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Input, Button } from "@/components/ui";
-import { AuthThemeToggle } from "@/components/auth-theme-toggle";
+import { AuthPageShell } from "@/components/auth-layout";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -37,51 +37,42 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <AuthThemeToggle />
-      <div className="w-full max-w-md">
+    <AuthPageShell
+      title="Forgot password?"
+      subtitle="Enter your email and we'll send a reset link"
+      footer={
         <Link
           href="/login"
-          className="mb-6 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
+          className="mt-6 inline-flex items-center gap-1 text-sm text-muted hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to sign in
         </Link>
-
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-accent">
-            <Zap className="h-6 w-6 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold">Forgot password?</h1>
-          <p className="mt-1 text-sm text-muted">
-            Enter your email and we&apos;ll send a reset link
+      }
+    >
+      {sent ? (
+        <div className="glass rounded-xl p-6 text-center">
+          <p className="text-sm text-muted">{message}</p>
+          <p className="mt-2 text-xs text-muted">
+            Check your inbox. Without SMTP, the link appears in the server terminal.
           </p>
         </div>
-
-        {sent ? (
-          <div className="glass rounded-xl p-6 text-center">
-            <p className="text-sm text-muted">{message}</p>
-            <p className="mt-2 text-xs text-muted">
-              Check your inbox. Without SMTP, the link appears in the server terminal.
-            </p>
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="glass animate-fade-in-scale space-y-4 rounded-xl p-6">
-            <Input
-              label="Email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@company.com"
-              required
-            />
-            {error && <p className="text-sm text-danger">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Sending..." : "Send reset link"}
-            </Button>
-          </form>
-        )}
-      </div>
-    </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="glass animate-fade-in-scale space-y-4 rounded-xl p-6">
+          <Input
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@company.com"
+            required
+          />
+          {error && <p className="text-sm text-danger">{error}</p>}
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Sending..." : "Send reset link"}
+          </Button>
+        </form>
+      )}
+    </AuthPageShell>
   );
 }

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { activeSubscriptionWhere } from "@/lib/subscriptions";
 
 export async function expireStaleSubscriptions() {
   const now = new Date();
@@ -27,7 +28,6 @@ export async function expireStaleSubscriptions() {
 }
 
 export async function getAdminStats() {
-  const now = new Date();
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -42,9 +42,9 @@ export async function getAdminStats() {
   ] = await Promise.all([
     prisma.apiProduct.count({ where: { isActive: true } }),
     prisma.user.count({ where: { role: "CUSTOMER" } }),
-    prisma.subscription.count({ where: { status: "ACTIVE", expiresAt: { gt: now } } }),
+    prisma.subscription.count({ where: activeSubscriptionWhere() }),
     prisma.subscription.aggregate({
-      where: { status: "ACTIVE" },
+      where: activeSubscriptionWhere(),
       _sum: { price: true },
     }),
     prisma.apiUsageLog.count({ where: { createdAt: { gte: thirtyDaysAgo } } }),
