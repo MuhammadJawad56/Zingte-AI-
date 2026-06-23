@@ -2,19 +2,31 @@ import nodemailer from "nodemailer";
 import type Transporter from "nodemailer/lib/mailer";
 import { getAppUrl } from "@/lib/utils";
 
+export type EmailSendResult = {
+  sent: boolean;
+  dev: boolean;
+  actionUrl?: string;
+};
+
 function getFromAddress() {
   const name = process.env.EMAIL_FROM_NAME || "Zingte API Hub";
-  const email = process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@zingte.ai";
+  const email =
+    process.env.SMTP_FROM || process.env.SMTP_USER || "noreply@zingte.ai";
   return `"${name}" <${email}>`;
 }
 
-function isSmtpConfigured() {
-  return Boolean(process.env.SMTP_HOST && process.env.SMTP_USER);
+/** True when real SMTP credentials are set (not dev console mode). */
+export function isSmtpConfigured(): boolean {
+  return Boolean(
+    process.env.SMTP_HOST?.trim() &&
+      process.env.SMTP_USER?.trim() &&
+      process.env.SMTP_PASS?.trim()
+  );
 }
 
 let transporter: Transporter | null = null;
 
-function getTransporter() {
+function getTransporter(): Transporter | null {
   if (!isSmtpConfigured()) return null;
   if (!transporter) {
     transporter = nodemailer.createTransport({
@@ -30,7 +42,17 @@ function getTransporter() {
   return transporter;
 }
 
-function emailLayout(title: string, body: string, ctaLabel: string, ctaUrl: string) {
+function extractActionUrl(html: string): string | undefined {
+  const match = html.match(/href="([^"]+)"/);
+  return match?.[1];
+}
+
+function emailLayout(
+  title: string,
+  body: string,
+  ctaLabel: string,
+  ctaUrl: string
+) {
   return `
 <!DOCTYPE html>
 <html>
@@ -54,17 +76,21 @@ function emailLayout(title: string, body: string, ctaLabel: string, ctaUrl: stri
 </html>`;
 }
 
-async function sendEmail(to: string, subject: string, html: string) {
+async function sendEmail(
+  to: string,
+  subject: string,
+  html: string
+): Promise<EmailSendResult> {
+  const actionUrl = extractActionUrl(html);
   const transport = getTransporter();
 
   if (!transport) {
     console.log("\n========== EMAIL (SMTP not configured) ==========");
     console.log(`To: ${to}`);
     console.log(`Subject: ${subject}`);
-    const textMatch = html.match(/href="([^"]+)"/);
-    if (textMatch) console.log(`Link: ${textMatch[1]}`);
+    if (actionUrl) console.log(`Link: ${actionUrl}`);
     console.log("=================================================\n");
-    return { dev: true };
+    return { sent: false, dev: true, actionUrl };
   }
 
   await transport.sendMail({
@@ -74,21 +100,29 @@ async function sendEmail(to: string, subject: string, html: string) {
     html,
   });
 
-  return { dev: false };
+  return { sent: true, dev: false, actionUrl };
 }
 
-export async function sendVerificationEmail(email: string, name: string, token: string) {
+export async function sendVerificationEmail(
+  email: string,
+  name: string,
+  token: string
+): Promise<EmailSendResult> {
   const url = `${getAppUrl()}/api/auth/verify-email?token=${token}`;
   const html = emailLayout(
     "Verify your email",
-    `Hi ${name},<br><br>Thanks for signing up for Zingte API Hub. Please verify your email address to activate your account and start subscribing to APIs.`,
+    `Hi ${name},<br><br>Thanks for signing up for Zingte API Hub. Please verify your email address to activate your account and start subscribing to APIs. This link expires in 24 hours.`,
     "Verify email address",
     url
   );
   return sendEmail(email, "Verify your Zingte API Hub account", html);
 }
 
-export async function sendPasswordResetEmail(email: string, name: string, token: string) {
+export async function sendPasswordResetEmail(
+  email: string,
+  name: string,
+  token: string
+): Promise<EmailSendResult> {
   const url = `${getAppUrl()}/reset-password?token=${token}`;
   const html = emailLayout(
     "Reset your password",
@@ -99,7 +133,10 @@ export async function sendPasswordResetEmail(email: string, name: string, token:
   return sendEmail(email, "Reset your Zingte API Hub password", html);
 }
 
-export async function sendWelcomeEmail(email: string, name: string) {
+export async function sendWelcomeEmail(
+  email: string,
+  name: string
+): Promise<EmailSendResult> {
   const url = `${getAppUrl()}/dashboard`;
   const html = emailLayout(
     "Welcome to Zingte API Hub",
@@ -108,4 +145,12 @@ export async function sendWelcomeEmail(email: string, name: string) {
     url
   );
   return sendEmail(email, "Welcome to Zingte API Hub", html);
+}
+
+/** Optional: call after setting SMTP env vars to confirm credentials work. */
+export async function verifySmtpConnection(): Promise<boolean> {
+  const transport = getTransporter();
+  if (!transport) return false;
+  await transport.verify();
+  return true;
 }

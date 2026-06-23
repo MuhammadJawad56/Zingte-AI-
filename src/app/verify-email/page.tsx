@@ -13,6 +13,10 @@ function VerifyErrorContent() {
   const messages: Record<string, string> = {
     missing_token: "No verification token was provided.",
     invalid_token: "This verification link is invalid or has expired.",
+    used_or_invalid:
+      "This link is invalid or was already used. Try signing in, or request a new verification email.",
+    expired_token:
+      "This verification link has expired (links last 24 hours). Request a new one below.",
   };
 
   return (

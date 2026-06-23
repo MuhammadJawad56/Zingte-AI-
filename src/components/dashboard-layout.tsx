@@ -4,26 +4,8 @@ import { ThemeToggleWithLabel } from "@/components/theme-toggle";
 import { DashboardNav } from "@/components/dashboard-nav";
 import {
   Zap,
-  LayoutDashboard,
-  Package,
-  Key,
-  Users,
   LogOut,
-  CreditCard,
 } from "lucide-react";
-
-const adminNav = [
-  { href: "/admin", label: "Overview", icon: LayoutDashboard },
-  { href: "/admin/apis", label: "API Catalog", icon: Package },
-  { href: "/admin/subscribers", label: "Subscribers", icon: Users },
-];
-
-const customerNav = [
-  { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
-  { href: "/dashboard/apis", label: "Browse APIs", icon: Package },
-  { href: "/dashboard/subscriptions", label: "Subscriptions", icon: CreditCard },
-  { href: "/dashboard/tokens", label: "API Tokens", icon: Key },
-];
 
 export async function DashboardLayout({
   children,
@@ -33,7 +15,6 @@ export async function DashboardLayout({
   role: "ADMIN" | "CUSTOMER";
 }) {
   const session = await getSession();
-  const nav = role === "ADMIN" ? adminNav : customerNav;
   const homeHref = role === "ADMIN" ? "/admin" : "/dashboard";
 
   return (
@@ -51,7 +32,7 @@ export async function DashboardLayout({
           </Link>
         </div>
 
-        <DashboardNav items={nav} />
+        <DashboardNav role={role} />
 
         <div className="border-t border-border p-4">
           <div className="mb-3 rounded-lg bg-card-hover/50 px-3 py-2 transition-colors">

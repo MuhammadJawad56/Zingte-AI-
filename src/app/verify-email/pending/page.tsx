@@ -7,11 +7,31 @@ import { Mail } from "lucide-react";
 import { Button } from "@/components/ui";
 import { AuthPageShell } from "@/components/auth-layout";
 import { useResendVerification } from "@/hooks/use-resend-verification";
+import { useDevVerificationUrl } from "@/hooks/use-dev-verification-link";
+
+function DevVerificationBanner({ url }: { url: string }) {
+  return (
+    <div className="mt-6 rounded-lg border border-accent/30 bg-accent/10 p-4 text-left text-sm">
+      <p className="font-medium text-foreground">Development mode — no SMTP configured</p>
+      <p className="mt-1 text-xs text-muted">
+        Click the link below to verify (also printed in your server terminal):
+      </p>
+      <a
+        href={url}
+        className="mt-2 block break-all text-xs text-accent hover:underline"
+      >
+        {url}
+      </a>
+    </div>
+  );
+}
 
 function PendingContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
-  const { resend, message, error, loading } = useResendVerification(email);
+  const savedDevLink = useDevVerificationUrl();
+  const { resend, message, error, loading, devLink } = useResendVerification(email);
+  const showDevLink = devLink || savedDevLink;
 
   return (
     <div className="text-center">
@@ -28,9 +48,15 @@ function PendingContent() {
         )}
         . Click the link to activate your account.
       </p>
-      <p className="mt-2 text-xs text-muted">
-        Without SMTP configured, the verification link is printed in your server terminal.
-      </p>
+
+      {showDevLink && <DevVerificationBanner url={showDevLink} />}
+
+      {!showDevLink && (
+        <p className="mt-2 text-xs text-muted">
+          Without SMTP configured, the verification link is printed in your server
+          terminal where <code className="text-foreground">npm run dev</code> is running.
+        </p>
+      )}
 
       <div className="mt-8 space-y-3">
         <Button

@@ -11,6 +11,11 @@ import {
 } from "@/lib/api-helpers";
 import { registerSchema } from "@/lib/validators";
 
+function devOnlyPayload(actionUrl?: string) {
+  if (process.env.NODE_ENV !== "development" || !actionUrl) return {};
+  return { devVerificationUrl: actionUrl };
+}
+
 export async function POST(request: NextRequest) {
   const data = await parseBody(request, registerSchema);
   if (isErrorResponse(data)) return data;
@@ -45,13 +50,33 @@ export async function POST(request: NextRequest) {
     });
 
     const token = await createAuthToken(user.id, "EMAIL_VERIFICATION");
-    await sendVerificationEmail(user.email, user.name, token);
+
+    let emailResult;
+    try {
+      emailResult = await sendVerificationEmail(user.email, user.name, token);
+    } catch (emailError) {
+      console.error("Verification email failed:", emailError);
+      return NextResponse.json(
+        {
+          message:
+            "Account created, but we could not send the verification email. Use 'Resend' on the next screen.",
+          email: user.email,
+          requiresVerification: true,
+          emailSent: false,
+        },
+        { status: 201 }
+      );
+    }
 
     return NextResponse.json(
       {
-        message: "Account created. Please check your email to verify your account.",
+        message:
+          "Account created. Please check your email to verify your account.",
         email: user.email,
         requiresVerification: true,
+        emailSent: emailResult.sent,
+        emailMode: emailResult.dev ? "dev" : "smtp",
+        ...devOnlyPayload(emailResult.actionUrl),
       },
       { status: 201 }
     );

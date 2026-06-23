@@ -11,12 +11,13 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const resetSuccess = searchParams.get("reset") === "success";
+  const alreadyVerified = searchParams.get("verified") === "already";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [unverifiedEmail, setUnverifiedEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const { resend, message: resendMsg, loading: resending } =
+  const { resend, message: resendMsg, loading: resending, devLink } =
     useResendVerification(unverifiedEmail);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -50,6 +51,11 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit} className="glass animate-fade-in-scale space-y-4 rounded-xl p-6">
+      {alreadyVerified && (
+        <p className="rounded-lg bg-success/10 p-3 text-sm text-success">
+          Your email is already verified. You can sign in now.
+        </p>
+      )}
       {resetSuccess && (
         <p className="rounded-lg bg-success/10 p-3 text-sm text-success">
           Password updated. You can sign in now.
@@ -91,6 +97,14 @@ function LoginForm() {
             {resending ? "Sending..." : "Resend verification email"}
           </Button>
           {resendMsg && <p className="mt-2 text-xs text-success">{resendMsg}</p>}
+          {devLink && (
+            <a
+              href={devLink}
+              className="mt-2 block break-all text-xs text-accent hover:underline"
+            >
+              Dev: click here to verify
+            </a>
+          )}
         </div>
       )}
       <Button type="submit" className="w-full" disabled={loading}>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Input, Button } from "@/components/ui";
 import { AuthPageShell } from "@/components/auth-layout";
+import { saveDevVerificationUrl } from "@/hooks/use-dev-verification-link";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -38,6 +39,10 @@ export default function RegisterPage() {
       }
 
       if (!res.ok) throw new Error(data.error);
+
+      if (data.devVerificationUrl) {
+        saveDevVerificationUrl(data.devVerificationUrl);
+      }
 
       router.push(
         `/verify-email/pending?email=${encodeURIComponent(data.email)}`
